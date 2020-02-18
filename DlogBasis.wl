@@ -52,6 +52,8 @@ UseMacaulay2::usage="UseMacaulay2[True] enables the usage of Macaulay2 for faste
 The usage requires an installed version of 'Macaulay2'. The path to Macaulay2 must be assigned to
 the variable 'Macaulay2Path' (e.g. Macaualy2Path=\"/Applications/Macaulay2-1.15/bin/\") and the variable 
 'DataPath' has to be set to a directory to save temporary files (e.g. Datapath=\"~/Documents/MyTemporaryDirectory\").";
+Macaulay2Path::usage;
+DataPath::usage;
 UnsolvedTerm::usage="Whenever the LeadingSingularities method does not succeed the term that can not be solved is returned with 'UnsolvedTerm'";
 
 
@@ -630,7 +632,6 @@ IntegrandAnsatz[G_[fam_, pinds_], dim_:4] :=
         ];
 	];
 	If[ret===Global`Failed[],Return[ret]];
-	If[pri>2,Print[nans/.SP[r_]:>sps[[r]]]];
 	If[Length[nans]==0, Return[{}]];
 
 	SPtoP = 
@@ -756,13 +757,15 @@ FunctionToList[func_,nn_,len_]:=Module[{coflist,flist},
 
 
 
-ExALL[func_,vari_,pr_,ns_]:=Module[{exl,i,nn,sols,ex,x,nexl,rules,rules2, res, exInt, unsolvedReplaced, joinedSols},
+ExALL[func_,vari_,pr_,ns_]:=Module[{exl,i,nn,sols,ex,x,nexl,rules,rules2, res, exInt, unsolvedReplaced, joinedSols, gl, unslen},
 	unsolved={};
+	unslen=0;
 	remainunsolved={};
 	nn=ns;
 	exl={{{func},vari,pr}};
 	sols={};
 	For[i=1,i<=Length[vari],i++,
+		unslen=Length[unsolved];
 		(*If[i>=Length[vari]-1, Print["EXXLLL"];Print[exl]];*)
 		If[pri>-1,PrintTemporary["Variable ",i," of ",Length[vari]]];
 		exl=SortBy[exl,Length[#[[1]]]&];
@@ -825,6 +828,7 @@ ExALL[func_,vari_,pr_,ns_]:=Module[{exl,i,nn,sols,ex,x,nexl,rules,rules2, res, e
 			exl=DeleteCases[exl,{{{{0,1}},_},_},{3}];
 			exl=DeleteCases[exl,{{},_,_},{1}];
 			i--;
+			unsolved = unsolved[[1;;unslen]];Ap
 	(*Print[CheckEnergyDimension[exl]];
 			Print[exl];*)
 			,
@@ -845,6 +849,9 @@ ExALL[func_,vari_,pr_,ns_]:=Module[{exl,i,nn,sols,ex,x,nexl,rules,rules2, res, e
 	Abort[];*)
 	(*Put[unsolved,"~/workspace/lsing/UnsolvedCases/unsolved.txt"];
 	Abort[];*)
+	(*Delete linear dependent cases of unsolved terms*)
+	gl = GetLinsOrd[unsolved[[All,1]]][[1]];
+	unsolved = unsolved[[gl]];
 	While[Length[unsolved]>0,
 		If[pri>-1,PrintTemporary["Solve square root term: ",Length[unsolved]," term"<>If[Length[unsolved]==1,"","s"]<>" left."]];
 		(*Print[unsolved];*)
@@ -857,7 +864,7 @@ ExALL[func_,vari_,pr_,ns_]:=Module[{exl,i,nn,sols,ex,x,nexl,rules,rules2, res, e
 		unsolved=Delete[unsolved,-1];
 		joinedSols=(#[[1]] -> (#[[2]] //.Join[res[[2]],exInt[[2]]])) & /@ Join[res[[2]],exInt[[2]]];
 		res={Join[exInt[[1]]/.joinedSols,res[[1]]/.joinedSols][[GetLinsOrd[Join[exInt[[1]]/.joinedSols,res[[1]]/.joinedSols]  ][[1]]]],joinedSols};
-		If[pri>2,Print["New solution"];Print[res];];	
+		If[pri>8,Print["New solution"];Print[res];];	
 	];
 	res[[1]]=Join[res[[1]],Global`Unsolved&/@remainunsolved];
 	res
@@ -949,14 +956,14 @@ ExLsList[flst_]:=Module[{fls,fs,pos,g,pl,rest,gr,ret,zer,prob,at,egl,i,j,k,trans
 		Return[{{g,Delete[fls[[2]],pos],fls[[3]]}}];
 		,
 		fs=FindSuitedList[#,fls[[2]]]&/@fls[[1]];
-		If[pri>1,Print["fs2",fs]];
+		If[pri>4,Print["fs2",fs]];
 		zer= Position[ fs,0*  Range[Length[fls[[2]]]]  ] ;
-		If[pri>1,Print["zer2",zer]];
+		If[pri>4,Print["zer2",zer]];
 		prob=fls[[1,Flatten[zer]]];
 		(*prob={func,func,func}*)
 		(*Print[prob];*)
 		Do[
-			If[pri>3,Print["prob ",i," of ",Length[prob]]];
+			If[pri>4,Print["prob ",i," of ",Length[prob]]];
 			at=Join@@AllTransformations[fls[[2]],fls[[3]]];
 			If[pri>3,Print["at"]];
 			If[pri>3,Print[at]];
@@ -974,19 +981,18 @@ ExLsList[flst_]:=Module[{fls,fs,pos,g,pl,rest,gr,ret,zer,prob,at,egl,i,j,k,trans
 			trans=If[Length[at]>0, TransformProb[prob[[i]],fls[[2]],at], NoTrafo[prob[[i]]]];
 			(*trans[[1]]=func,trans[[2]]=number of succesful transformation, trans[[3]]=index of next variable*)
 			If[Head[trans]===NoTrafo,
-				If[pri>0,Print["+++++++++++++++No trafo found++++++++++++++++++++++++++++"]];
-				If[pri>0,Print[ListToFunction[prob[[i]],n]]];
+				If[pri>5,Print["+++++++++++++++No trafo found++++++++++++++++++++++++++++"]];
+				If[pri>5,Print[ListToFunction[prob[[i]],n]]];
 				unsolved=Append[unsolved,{ListToFunction[prob[[i]],n],flst[[2]]}];
 				If[pri>-1,PrintTemporary["Square root term: ",Length[unsolved]]	];
 				(*Throw[NoTrafo[prob[[i]]]];*)
 				,
-				If[pri>1,Print["Trafo found"]];
+				If[pri>3,Print["Trafo found"]];
 				(*Print[trans];*)
 				j=trans[[2]];
 				If[pri>3,Print["Before ExGlist"]];
 				egl=ExGlist[{trans[[1]]},fls[[2,trans[[3]]]]];
 				uns={#[[1]],fls[[2]]}&/@Cases[egl,Unsolved[__]];
-				Print["asdfsd"];
 				If[Length[uns]>0,
 					unsolved=Join[unsolved,uns];
 					egl=DeleteCases[egl,Unsolved[__]];
@@ -1042,7 +1048,7 @@ Module[{qp,i,pp,gel,ltf,exgunsolved},
 	(*qp=Table[If[pri>1,Print["---Term ",i," of ",Length[list]]];MyListApartNew[list[[i]],x],{i,1,Length[list]}];*)
 	If[pri>3,Print["---Apart finished"]];
 	pp=Join@@qp[[All,All,1]];
-	If[pri>0,Print["BeforeGetLinsN"]];
+	If[pri>3,Print["BeforeGetLinsN"]];
 	ltf=ListToFunction[#,n]&/@pp;
 	If[pri>3,Print["After ListToFunction. Length[pp]: ",Length[pp]]];
 	gel=GetLinsOrd[ltf];
@@ -1227,33 +1233,33 @@ Catch1[ex_,x_,vars_,nn_]:=Module[{fn,pd,pred},
 	(*Print["CatchCommand"];*)
 	(*Print[Catch11[ex,x,vars,nn]];*)
 	fn=ListToFunction[{{ex[[1,1]],{}},ex[[2]]},n];
-	If[pri>3,Print["fn:"]];
-	If[pri>3,Print[fn]];
+	If[pri>6,Print["fn:"]];
+	If[pri>6,Print[fn]];
 	pd=Select[ex[[1,2]],#[[2]]>=2&];
-	If[pri>3,Print["pd:"]];
-	If[pri>3,Print[pd]];
+	If[pri>6,Print["pd:"]];
+	If[pri>6,Print[pd]];
 	pd=Times@@(Power[#[[1]],#[[2]]-1]&/@pd);
-	If[pri>3,Print[pd]];
+	If[pri>6,Print[pd]];
 	pred=PolynomialRemainder[fn,pd,x];
-	If[pri>3,Print[pred]];
+	If[pri>6,Print[pred]];
 	pred=DeleteCases[Flatten[CoefficientList[pred,vars]],0];
-	If[pri>3,Print[pred]];
+	If[pri>6,Print[pred]];
 	RearrangeRules[Quiet[Solve[pred==0*Range[Length[pred]],nn][[1]]]]
 ];
 
 Catch1New[ex_,x_,vars_,nn_]:=Module[{pd,pred,i},
 	(*Print[Catch11[ex,x,vars,nn]];*)
 	pd=Select[ex[[1,2]],#[[2]]>=2&];
-	If[pri>3,Print["pd:"]];
-	If[pri>3,Print[pd]];
+	If[pri>6,Print["pd:"]];
+	If[pri>6,Print[pd]];
 	pd=Times@@(Power[#[[1]],#[[2]]-1]&/@pd);
-	If[pri>3,Print[pd]];
+	If[pri>6,Print[pd]];
 	pred=Table[If[pri>1&&Mod[i,10] === 0, Print["PolynomialReduce: ",i]]; 
 		PolynomialReduce[Times@@Power@@@ex[[2,i]], {pd}, vars][[2]], {i, 1, Length[ex[[2]]]}];
 	pred=pred.nn;
 	If[pri>4,Print[pred]];
 	pred=DeleteCases[Flatten[CoefficientList[pred,vars]],0];
-	If[pri>3,Print[pred]];
+	If[pri>6,Print[pred]];
 	RearrangeRules[Quiet[Solve[pred==0*Range[Length[pred]],nn][[1]]]]	
 ];
 
@@ -1319,7 +1325,7 @@ Catch3New[ex_,x_,vars_,nn_]:=Module[{fn,pd,expon,cl,pred},
 	fn=ListToFunction[{{ex[[1,1]],{}},ex[[2]]},n];	
 	pd=Times@@Power@@@ex[[1,2]];
 	expon=Exponent[pd,x];
-	If[pri>3,Print["expon ",expon]];
+	If[pri>6,Print["expon ",expon]];
 	cl=CoefficientList[fn,x][[(expon+1);;]];
 	(*Print["cl"];
 	Print[cl];*)
@@ -1516,9 +1522,9 @@ MyFactorList[expr_] := Module[{fl, m, i, factored, time},
   If[(UseMacaulay===True)&&(ByteCount[expr]>10000),
   	fl=TimeConstrained[FactorList[expr],2,Fail];
   	If[fl===Fail,
-  		If[pri>-1,Print["Use M2. file: ",random,", size: ",ByteCount[expr]]];
+  		If[pri>-1,PrintTemporary["Use Macaulay2. File: ",random,", size: ",ByteCount[expr]]];
   		{time,factored}=AbsoluteTiming[M2Factor[expr]];
-  		If[pri>-1,Print["M2-time : ",time]];
+  		If[pri>-1,PrintTemporary["Macaulay2-time : ",time]];
   		(*{time,factored}=AbsoluteTiming[Factor[expr]];
   		Print["MA-time : ",time];*)
   		If[Head[factored]===Times,fl=List@@factored,fl={factored}];
@@ -1726,7 +1732,7 @@ GetLinsOrd2[funcs_]:=Module[{nfuncs, df, i, res},
 GetLinsTiz[funcs_]:=Module[
 	{vars,nvars,nfuncs,extra,sampletable,newvars,repl,newfuncs,func,h,i,j,
 		coeffs,system,sol,indep,coeff,dep,indepcoeffs, zero, fun, rels, (*trues, *)table},
-	If[pri>3, Print["GetLinsTiz ", Length[funcs]]];
+	If[pri>6, Print["GetLinsTiz ", Length[funcs]]];
 	If[pri>13, Print[GetLinsTizz[funcs]]];
 	vars = Variables[funcs];
 	nvars = Length[vars];
@@ -1742,7 +1748,7 @@ GetLinsTiz[funcs_]:=Module[
 	(*system=(coeffs.#==0)&/@Table[funcs/.samples[[ii]],{ii,Length[samples]}];*)
 	(*samples = Table[Dispatch[Table[vars[[i]]->Prime[7+2 i+j],{i,1,nvars}]],{j,1,nfuncs+extra}];*)
 	Do[
-		If[pri>3, Print["k ", h]];
+		If[pri>6, Print["k ", h]];
 		SeedRandom[nfuncs];
 		sampletable=Table[RandomSample[Table[Prime[7+10*h+(2+h)i+j],{i,1,nvars}]],{j,1,nfuncs+extra}];	
 		(*Print[Table[func[i],{i,nfuncs}]];*)
@@ -1773,17 +1779,17 @@ CatchNoTrafo[prob_, vars_]:=Module[{pd},
 	Print["No Trafo"];
 	Abort[];
 	pd=Cases[prob[[1,2]],q_/;And@@(Exponent[q[[1]],#]>=2&/@vars)];
-	If[pri>0,Print["pd:"]];
-	If[pri>0,Print[pd]];
+	If[pri>5,Print["pd:"]];
+	If[pri>5,Print[pd]];
 	Abort[];
 	pd=Times@@(Power[#[[1]],#[[2]]-1]&/@pd);
-	If[pri>3,Print[pd]];
-	pred=Table[If[pri>1&&Mod[i,10] === 0, Print["PolynomialReduce: ",i]]; 
+	If[pri>6,Print[pd]];
+	pred=Table[If[pri>4&&Mod[i,10] === 0, Print["PolynomialReduce: ",i]]; 
 		PolynomialReduce[Times@@Power@@@ex[[2,i]], {pd}, vars][[2]], {i, 1, Length[ex[[2]]]}];
 	pred=pred.nn;
 	If[pri>4,Print[pred]];
 	pred=DeleteCases[Flatten[CoefficientList[pred,vars]],0];
-	If[pri>3,Print[pred]];
+	If[pri>6,Print[pred]];
 	RearrangeRules[Quiet[Solve[pred==0*Range[Length[pred]],nn][[1]]]]
 ]
 
@@ -1828,7 +1834,7 @@ ExSQRT[terms_, vars_, nn_] :=
         If[Length[vars]==0,Return[{{terms},{}}]];
     	n=nn;
     	lsingvars=vars;
-        If[ pri>1,
+        If[ pri>7,
             Print[ExxSQRT[terms, vars, n]]
         ];
         
@@ -1875,6 +1881,7 @@ ExSQRT[terms_, vars_, nn_] :=
         {lsings, rules}
     ]
 
+
 ExSqrtList[term_, vars_, nn_] :=
     Module[ {nterm, rules, nrules, i, fsv, xxx, probs, rest, sqr, ls},
     	n=nn;
@@ -1885,7 +1892,7 @@ ExSqrtList[term_, vars_, nn_] :=
         Do[
         	nterm = FactorCollect[nterm /. rules];
          	nrules = FindDoublePoles[nterm, vars, n][[1]];
-         	If[pri>0 && Length[nrules>0], Print["nrules: ",nrules]];
+         	If[pri>5 && Length[nrules>0], Print["nrules: ",nrules]];
          	If[ Length[nrules] == 0,
             	Break[],
              	rules = Union[rules /. nrules, nrules];
@@ -1896,21 +1903,21 @@ ExSqrtList[term_, vars_, nn_] :=
          	,
          	{i, 20}
         ];
-        If[pri>2, Print["nrules"];Print[nrules];];
+        If[pri>5, Print["nrules"];Print[nrules];];
         If[ nterm === 0,
             Return[{{}, rules, {}}]
         ];
         fsv = FindSimplestVariable[nterm, vars];
         If[ Min[fsv] > 10000,
             nterm = FindTransformation[nterm, vars];
-            If[pri>1,Print["Found"]];
-            If[pri>1,Print[nterm]];
+            If[pri>5,Print["Found"]];
+            If[pri>5,Print[nterm]];
         ];
         (*Search again for double poles after possible transformation*)
         Do[
         	nterm = FactorCollect[nterm /. rules];
          	nrules = FindDoublePoles[nterm, vars, n][[1]];
-         	If[pri>0 && Length[nrules>0], Print["nrules: ",nrules]];
+         	If[pri>5 && Length[nrules>0], Print["nrules: ",nrules]];
          	If[ Length[nrules] == 0,
             	Break[],
              	rules = Union[rules /. nrules, nrules];
@@ -1976,7 +1983,7 @@ ExSqrtList[term_, vars_, nn_] :=
 ApartListSQRT[term_, xx_] :=
     Module[ {diff, quo, rem, st, out},
 		(*Put[ApartListSQRTT[term, xx],"~/workspace/lsing/UnsolvedCases/ApartList.txt"];*)
-    	If[pri>2,Print["ApartListSQRT1"]];
+    	If[pri>4,Print["ApartListSQRT1"]];
         diff = Exponent[Numerator[term], xx] - 
           Exponent[Denominator[term], xx];
         If[pri>4,Print["ApartListSQRT2"]];
@@ -1987,31 +1994,87 @@ ApartListSQRT[term_, xx_] :=
         ];
         If[pri>4,Print["ApartListSQRT3"]];
         If[ diff == 0,
-        	If[pri>1,Print["ply"]];
             {quo, rem} = 
             PolynomialQuotientRemainder[Numerator[term], Denominator[term], xx];
-            If[pri>1,Print["ply fin"]];
             rem = rem/Denominator[term],
             rem = term;
             quo = 0
         ];
-        If[pri>4,Print["ApartListSQRT4"]];
-        If[pri>4,Print[xx]];
         st = FactorCollect /@ ApartList[rem, xx];
-        If[pri>4,Print["ApartListSQRT5"]];
         Do[If[ Exponent[Numerator[st], xx] - Exponent[Denominator[st], xx] >=
              0 || Exponent[Denominator[st], xx] > 2,
                Print["Apart Error!"];
                Abort[]
            ], {i, Length[st]}];
-        If[pri>4,Print["ApartListSQRT6"]];
         out =
             DeleteCases[Prepend[st, FactorCollect[quo]], 0];
-		If[pri>4,Print["ApartListSQRT7"]];
         If[!PossibleZeroQ[out-term], Print["ApartListSQRT test failed"]; Print[term]; Print[xx]; Abort[]];
-        If[pri>2,Print["ApartListSQRT fin"]];
         out
     ]
+
+(*
+ApartList[term_, x_] :=
+    Module[ {dens, lins, squares, a, b, c, p, s, rad, g, u, v, i, const, 
+      con, muster, linstable, squarestable, t1, t2, tsum, res, reps, 
+      clnum, cl},
+      If[pri>2,Print["ApartList"]];
+        dens = ProductToList[Denominator[term]];
+        lins = Cases[dens, _?(Exponent[#, x] == 1 &)];
+        squares = Cases[dens, _?(Exponent[#, x] == 2 &)];
+        const = Times @@ Complement[dens, Join[lins, squares]];
+        If[ ! FreeQ[const, x],
+            Print["Apart Error"];
+            Abort[]
+        ];
+        muster = 
+         Sum[g[i] x^i, {i, 0, 
+            Exponent[Numerator[term], x]}]/(Product[
+             u[i] x + v[i], {i, Length[lins]}] Product[
+             a[i] x^2 + b[i] x + c[i], {i, Length[squares]}] con);
+        linstable = 
+         Table[MyFactor[(muster (u[i] x + v[i]) /. x -> -v[i]/u[i])/ (u[i] x +
+               v[i])], {i, Length[lins]}];
+        squarestable = 
+         Table[t1 = (muster (a[i] x^2 + b[i] x + 
+                  c[i])/(a[i] (x - (p + s)/(2 a[i]))) /. 
+              x -> (p - s)/(2 a[i]))/(x - (p - s)/(2 a[i]));
+               t2 = (muster (a[i] x^2 + b[i] x + 
+                       c[i])/(a[i] (x - (p - s)/(2 a[i]))) /. 
+                   x -> (p + s)/(2 a[i]))/(x - (p + s)/(2 a[i]));
+               tsum = MyFactor[
+                 ExpandDenominator[ExpandNumerator[Together[t1 + t2]]] /. 
+                  s^j_ /; Mod[j, 2] == 0 -> rad^(j/2)];
+               If[ ! FreeQ[tsum, s],
+                   Print["Apart Error s"];
+                   Abort[]
+               ];
+               tsum /. {p -> -b[i], s -> b[i]^2 - 4 a[i] c[i], 
+                 rad -> (b[i]^2 - 4 a[i] c[i])}, {i, Length[squares]}];
+        linstable=MyFactor/@linstable;
+        squarestable=MyFactor/@squarestable;
+        (*Print[linstable/.{a->Global`a,b->Global`b,c->Global`c,u->Global`u,v->Global`v,g->Global`g,con->Global`con}];
+        Print[squarestable/.{a->Global`a,b->Global`b,c->Global`cc,u->Global`u,v->Global`v,g->Global`g,con->Global`con}];*)
+        clnum = CoefficientList[Numerator[term], x];
+        reps = Join[
+          Join @@ Table[
+            cl = CoefficientList[squares[[i]], x];
+            {a[i] -> cl[[3]], b[i] -> cl[[2]], c[i] -> cl[[1]]}, {i, Length[squares]}], 
+          Join @@ Table[
+            cl = CoefficientList[lins[[i]], x];
+            {u[i] -> cl[[2]], 
+            v[i] -> cl[[1]]}, {i, Length[lins]}], 
+          Table[g[i - 1] -> clnum[[i]], {i, Length[clnum]}]
+          ];
+        res = Join[linstable, squarestable] /. reps /. con -> const;
+        res = MyCancel/@res;
+        If[ ! PossibleZeroQ[Total[res] - term],
+            Print["Apart test failed"];
+            Abort[]
+        ];
+        Print["Apart List fin"];
+        res
+    ]
+*)
 
 ApartList[term_, x_] :=
     Module[ {dens, lins, squares, a, b, c, p, s, rad, g, u, v, i, const, 
@@ -2055,11 +2118,8 @@ ApartList[term_, x_] :=
         	,
         	squarestable={};
     	];	
-        (*linstable=MyFactor/@linstable;*)
-        (*squarestable=MyFactor/@squarestable;*)
-       (* Print[linstable/.{a->Global`a,b->Global`b,c->Global`c,u->Global`u,v->Global`v,g->Global`g,con->Global`con}];
-        Print[squarestable/.{a->Global`a,b->Global`b,c->Global`cc,u->Global`u,v->Global`v,g->Global`g,con->Global`con}];*)
-		If[pri>10, Print["Before cl"]];		
+                     
+		If[pri>8, Print["Before cl"]];		
         clnum = CollectVN@CoefficientList[Numerator[term], x];
         reps = Join[
           Join @@ Table[
@@ -2074,19 +2134,19 @@ ApartList[term_, x_] :=
 		(*Put[reps/.{a->Global`a,b->Global`b,c->Global`cc,u->Global`u,v->Global`v,g->Global`g,con->Global`con},"~/Downloads/reps.txt"];
         Put[const/.{a->Global`a,b->Global`b,c->Global`cc,u->Global`u,v->Global`v,g->Global`g,con->Global`con},"~/Downloads/const.txt"];
         Put[squarestable/.{a->Global`a,b->Global`b,c->Global`cc,u->Global`u,v->Global`v,g->Global`g,con->Global`con},"~/Downloads/squarestable.txt"];*)
-		If[pri>10, Print["After cl"]];        
+		If[pri>8, Print["After cl"]];        
         res = Join[linstable, squarestable] /. reps /. con -> const;
-        If[pri>2,Print["res"];Print[res]];
+        If[pri>8,Print["res"];Print[res]];
 
         res = MyCancel/@res;
         If[Length[squares]>0,
-        	res=Append[res,MyFactor[term-Total[res]]];
+        	res=Append[res,MyCancel[term-Total[res]]];
         	If[Exponent[Denominator[res[[-1]]],x]!=2,
         		 Print["Apart error. Quadratic term wrong shape"];
         		 Print[res[[-1]]]
         	];
         ];
-        If[pri>2,Print["Canceled"]];
+        If[pri>8,Print["Canceled"]];
         If[pri>10,Print[res]];
         
         If[ ! PossibleZeroQ[Total[res] - term],
@@ -2101,12 +2161,37 @@ CollectVN[expr_]:=Module[{ns,vs},
 	vs=Union[vars,lsingvars];
 	If[Length[vs]==0,Return[expr]];
 	If[Length[ns]==0,Return[MyCollect[expr,vs,MyFactor]]];
-	MyCollect[expr,	ns, MyCollect[#,vs,MyFactor]&]
+	MyCollect[expr, ns, MyCollect[#,vs,MyFactor]&]
 ]
 
 MyCollect[expr_, vars_, func_] := Module[{Ruler},
  FromCoefficientRules[CoefficientRules[expr, vars]/.Rule->Ruler/.Ruler[a_,b_]:>Rule[a,func[b]], vars]
 ]
+
+(*
+MyCancel[term_] := Module[{num, den, ns, coeffs, factored, i, newnum, newden, bc},
+	num = Numerator[term];
+	den = Denominator[term];
+	ns = Union[Cases[{term}, n[_], Infinity]];
+	coeffs = Coefficient[num, #]&/@ns;
+	bc=ByteCount/@coeffs;
+	If[Max[bc]>10000000, Print["Cancel contains big terms: ",bc]];
+	factored = Table[
+		If[Max[bc]>10000000, Print["Cancel term ",i," of ",Length[coeffs]]];
+		If[
+			PossibleZeroQ[coeffs[[i]]]
+			,
+			0
+			,
+			MyFactor[Cancel[coeffs[[i]]/den]]
+		]
+		,
+		{i,Length[coeffs]}
+	];
+	newden=PolynomialLCM@@(Denominator/@factored);
+	newnum=Sum[ns[[i]]Numerator[factored[[i]]](newden/Denominator[factored[[i]]]),{i,Length[factored]}];
+	newnum/newden
+]*)
 
 MyCancel[term_] := Module[{num, den, ns, coeffs, factored, i, newnum, newden, bc, can},
 	num = Numerator[term];
@@ -2164,8 +2249,8 @@ ConvertQuadratic[term_,x_,vars_]:=Module[{den, y, fac, cl, a, b, c, d, trans, al
 
 FindTransformation[term_, vars_] :=
     Module[ {sqr, tra, sols, q, sol, i, v1, vothers, vothone, qs, ih, perms, pp, p, k, pmax},
-    	If[pri>1,Print["Find Transformation"]];        
-    	If[pri>1,Print[FindTransformationn[term, vars]]]; 
+    	If[pri>4,Print["Find Transformation"]];        
+    	If[pri>8,Print[FindTransformationn[term, vars]]]; 
         If[ Length[vars] < 2,
             Print["No transformation. Only one variable"];
             Throw[UnsolvedTerm[term/.{sqrt->Sqrt,n[1]->1},vars],UnsolvedTerm];
@@ -2184,21 +2269,21 @@ FindTransformation[term_, vars_] :=
         Do[
         	v1 = vars[[h]];
         	vothone= ReplacePart[vars,h->1];
-        	If[pri>1,Print[vothone]];
+        	If[pri>8,Print[vothone]];
         	vothers = Delete[vars,h];
-        	If[pri>1,Print[vothers]];
-        	If[pri>1,Print["p: ",p]];
+        	If[pri>8,Print[vothers]];
+        	If[pri>8,Print["p: ",p]];
         	perms=Union@@(Table[Permutations[pp],
         		{pp,
         			{ConstantArray[0,Length[vothers]], UnitVector[Length[vothers],1],If[Length[vothers]>=2,
         				 UnitVector[Length[vothers],1]+UnitVector[Length[vothers],2], UnitVector[Length[vothers],1]],
         				 2UnitVector[Length[vothers],1]}}][[1;;p+1]]);
-        	If[pri>1,Print["perms"]];
-        	If[pri>1,Print[perms]];
+        	If[pri>8,Print["perms"]];
+        	If[pri>8,Print[perms]];
         	
         	tra = v1 -> v1+Sum[q@@pp Times@@(vothers^pp)/vothone[[k]],{pp,perms}];
-        	If[pri>1,Print["tra"]];
-        	If[pri>1,Print[tra]];
+        	If[pri>8,Print["tra"]];
+        	If[pri>8,Print[tra]];
         	(*Print[perms];
         	Print[tra];*)
         	  (*vars[[1]] + q[1] vars[[2]] + q[2] vars[[2]]^2;*)
@@ -2216,8 +2301,8 @@ FindTransformation[term_, vars_] :=
         ];
         sol = tra /. Cases[sols, s_ /; Length[s] >= 1][[1]]/.q[__]->0;
         If[pri>1, Print["Found transformation"]];
-        If[pri>3,Print[tra]];
-        If[pri>3, Print[sol]];
+        If[pri>6,Print[tra]];
+        If[pri>6, Print[sol]];
         FactorCollect[term /. sol]
     ]
 
