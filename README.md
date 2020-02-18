@@ -14,5 +14,6 @@ No further installation necessary.
 DOCUMENTATION:
 The algorithm is documented in 
 arxiv:XXXXX
-The individual functions are documented in the appendix
+The individual functions are documented in the appendix of that
+paper.
 ****************************************************************
