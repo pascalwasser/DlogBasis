@@ -1,10 +1,12 @@
 ****************************************************************
+CONTENT:
+- DlogBasis.wl: Mathematica Package for the computation of 
+leading singularities and the classification of dlog integrals.
+- DlogBasis_Examples.nb: Mathematica Notebook illustrating
+the usage of the package with several examples.
+
+AUTHOR: 
 Pascal Wasser (2020)
-
-DlogBasis.wl
-
-Mathematica Package for the computation of leading singularities
-and the classification of dlog integrals
 
 USAGE:
 To use the pacakge an installed version of Wolfram Mathematica 
