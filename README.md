@@ -15,7 +15,7 @@ No further installation necessary.
 
 DOCUMENTATION:
 The algorithm is documented in 
-arxiv:XXXXX
+arxiv:2002.09492
 The individual functions are documented in the appendix of that
 paper.
 ****************************************************************
